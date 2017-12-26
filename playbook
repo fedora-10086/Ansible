@@ -1,0 +1,111 @@
+ ansible与被管理端建立联系仅需要ssh认证，如果需要免密钥登录的话，可以分发ssh的公钥到各个被管理端
+
+1 机器少的情况可以选择直接复制过去 
+mv id_rsa.pub authorized_keys 修改公钥名称
+scp authorized_keys user@IP:/home/user/.ssh将公钥copy到远程主机
+
+2 被管理端机器多的情况下，可以直接推送
+（1）ansible all -m copy -a "src=/home/user/.ssh/id_rsa.pub dest=/tmp/id_rsa.pub" --ask-pass -c paramiko #copy公钥
+          ansible all -m shell -a "cat /tmp/id_rsa.pub >> /root/.ssh/authorized_keys" --ask-pass -c paramiko #密钥添加到服务器
+
+（2）可以使用ansible的authorized_key模块直接推送
+   ansible all -m authorized_key -a "user=user key='{{ lookup('file', '/home/user/.ssh/id_rsa.pub') }}' path=/home/user/.ssh/authorized_keys manage_dir=no" --ask-pass -c paramiko
+
+
+错误： "msg": "Aborting, target uses selinux but python bindings (libselinux-python) aren't installed!"
+解决： yum install -y libselinux-python
+
+验证：
+ansible all -m command -a 'uptime'
+ansible all -m command -a 'uname -r'
+ansible all -m command -a 'yum update kernel -y'
+ansible all -m command -a 'reboot'
+ansible all -m raw -a 'ps -ef|grep mysqld'
+ansible all -m ping
+
+ansible storm_cluster -m copy -a "src=/etc/ansible/ansible.cfg dest=/tmp/ansible.cfg owner=root group=root mode=0644"
+
+
+
+添加用户及修改密码：
+vi useradd.yml
+
+---
+- hosts: jjyy
+  user: root
+  gather_facts: false
+  sudo: no
+  vars:
+      #password: python -c 'import crypt; print crypt.crypt("pwdpwd","wqd")'
+      user: wqd
+ 
+  tasks:
+    - name: add user
+      action: user name={{ user }} password=wq.eAqHtqIBJ2 update_password=always shell=/bin/bash home=/home/{{ user }}
+  tags:
+    - user
+
+
+vi mod_user_pass.yml
+
+---
+- hosts: jjyy
+  user: root
+  gather_facts: false
+  sudo: no
+  vars:
+      #password: python -c 'import crypt; print crypt.crypt("pwdpwd","wqd")'
+      user: wqd
+ 
+  tasks:
+    - name: change user pass
+      action: user name={{ user }} password=wqJhE1vdPdd7c update_password=always
+  tags:
+    - user
+
+
+
+
+批量修改 ssh port && ulimit
+vi change_port_limit.yml
+
+---
+    - hosts: "{{ host }}"
+      remote_user: "{{ user }}"
+      gather_facts: false
+
+      tasks:
+          - name: Modify ssh port 69410
+            lineinfile:
+                dest: /etc/ssh/{{ item }}
+                regexp: ‘^Port 69410‘
+                insertafter: ‘#Port 22‘
+                line: ‘Port 69410‘
+
+            with_items:
+                - sshd_config
+                - ssh_config
+            tags:
+                - sshport
+
+          - name: Set sysctl file limiits
+#            pam_limits: domain=‘*‘ limit_type={{item.limit_type}} limit_item={{item.limit_item}} value={{item.value}}
+            pam_limits:
+                dest: "{{ item.dest }}"
+                domain: ‘*‘
+                limit_type: "{{ item.limit_type }}"
+                limit_item: "{{ item.limit_item }}"
+                value: "{{ item.value }}"
+            with_items:
+                - { dest: ‘/etc/security/limits.conf‘,limit_type: ‘soft‘,limit_item: ‘nofile‘, value: ‘655350‘ }
+                - { dest: ‘/etc/security/limits.conf‘,limit_type: ‘hard‘,limit_item: ‘nofile‘, value: ‘655350‘}
+                - { dest: ‘/etc/security/limits.conf‘,limit_type: ‘soft‘,limit_item: ‘nproc‘, value: ‘102400‘ }
+                - { dest: ‘/etc/security/limits.conf‘,limit_type: ‘hard‘,limit_item: ‘nproc‘, value: ‘102400‘ }
+                - { dest: ‘/etc/security/limits.conf‘,limit_type: ‘soft‘,limit_item: ‘sigpending‘, value: ‘255377‘ }
+                - { dest: ‘/etc/security/limits.conf‘,limit_type: ‘hard‘,limit_item: ‘sigpending‘, value: ‘255377‘ }
+                - { dest: ‘/etc/security/limits.d/90-nproc.conf‘, limit_type: ‘soft‘,limit_item: ‘nproc‘, value: ‘262144‘ }
+                - { dest: ‘/etc/security/limits.d/90-nproc.conf‘, limit_type: ‘hard‘,limit_item: ‘nproc‘, value: ‘262144‘ }
+
+            tags:
+                - setlimits
+
