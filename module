@@ -1,0 +1,242 @@
+ansible remote_ser  -m command -a 'w'
+ansible remote_ser  -m command -a 'uptime'
+ansible remote_ser  -m command -a 'uname -r'
+ansible remote_ser -m ping
+
+ansible remote_ser -m copy -a 'src=/path/to/file.xx dest=/path/to/file.xx '
+ansible testhost  -m copy -a "src=/etc/ansible dest=/tmp/ansibletest owner=root group=root mode=0644"
+ 
+absible-playbook -i hosts xxx.yml -syntax-check    //yml 文件语法检查
+
+ansible-doc -l     //获取列表
+ansible-doc -s module_name       //模块使用信息
+
+ansible hosts -m -a
+-m： module_name
+-f ：并发
+-a: 模块专用参数
+
+常用模块：
+command    :   
+ansible all -m command -a  'ifconfig'
+
+user:
+-a 'name=  state={present(创建)|absent(删除)}  force=(是否强制操作删除家目录)  system=  uid=  shell= home='
+ansible all -m user -a 'name=ansible state=present'
+
+group:
+-a 'name= state={present|absent}  gid=  system=(系统组)'
+ansible all -m group -a 'name=mygroup state=present system=true'
+
+cron:
+-a  'name= state=  minute=  hour= day=  month=  weekday= job='
+ansible all -m cron -a 'name='Time' state=presentminute='*/5' job='/usr/sbin/ntpdate 172.168.0.1 &> /dev/null''
+
+ping
+ansible all -m ping
+
+file:
+-a 'path=  mode=  owner= group= state={file|directory|link|hard|touch|absent}  src=(link，链接至何处)'
+ansible all -m file -a 'path=/tmp/testdir state=directory'
+ ansible all -m file -a 'path=/tmp/test.txt state=touch mod=600 owner=user1'
+
+copy:
+-a 'dest=(远程主机上路径)  src=(本地主机路径)  content=(直接指明内容) owner=  group=  mode='
+ansible web -m copy -a 'src=/etc/yum.repos.d/aliyun.repo dest=/etc/yum.repos.d/'
+
+ansible testhost  -m copy -a "src=/etc/ansible dest=/tmp/ansibletest owner=root group=root mode=0644"
+
+template:
+-a  'dest= src=\'#\'  content=  owner= group=  mode='
+
+yum:
+-a 'name=  conf_file=(指明配置文件) state={present|latest|absent} enablerepo= disablerepo= '     
+ansible all -m yum 'name=httpd state=present'      
+ 
+service:
+-a 'name=  state={started|stopped|restarted} enabled=(是否开机自动启动)  runlevel= '
+ ansible all -m service -a 'name=httpd state=started'
+
+shell:
+ansible all -m shell -a echo "123456789" |passwd –stdin user1'
+ansible xxx_ser -m shell -a "sh /path/to/xx.sh > /path/to/xx.log"
+
+script:
+-a '/PATH/TO/SCRIPT'运行脚本
+ansible all -m script -a '/tmp/a.sh'
+
+setup:
+ansible -192.168.1.100 -m setup
+
+ansible架构
+       ansible core：ansible自身核心模块
+       host inventory：主机库，定义可管控的主机列表
+       connection plugins：连接插件，一般默认基于ssh协议连接
+       modules：core modules(自带模块)、custom modules(自定义模块)
+       playbooks：剧本，按照所设定编排的顺序执行完成安排任务
+
+
+ansible-playbook:
+
+ansible基于ssh连接inventory中指定的远程主机时，将以此处的参数指定的属性进行
+
+inventory-->hosts:
+
+192.168.0.101   ansible_ssh_port=22  ansible_ssh_user=root  ansible_ssh_pass=xuding
+192.168.0.102
+
+注意：在/etc/ansible/hosts中直接定义连接时候的密码不安全，一般建议基于ssh的密钥认证方式实现
+
+
+(1)核心元素
+    Tasks任务、Variables变量、Templates模板、Handlers处理器、Roles角色
+
+(2)playbooks中定义任务：
+    - name： task description   注释描述信息
+          module_name: module_args   声明模块：定义ansible模块参数
+
+- hosts: web_server
+  remote_user: root
+  gather_fact: false
+  tasks:
+    - name: install httpd
+      yum: name=httpd state=present
+    - name: install php
+      yum: name=php state=present
+    - name: start httpd
+      service: name=httpd state=started enabled=true
+
+
+3.playbooks
+      (1)核心元素
+              Tasks任务、Variables变量、Templates模板、Handlers处理器、Roles角色
+
+      (2)playbooks中定义任务：
+– name： task description   注释描述信息
+ module_name: module_args   声明模块：定义ansible模块参数
+
+ 4.playbook— 变量
+      (1)变量命名：字母、数字和下划线组成，仅能以字母开头；
+      (2)变量种类：
+
+ 1)facts：由远程主机发回的主机特有的属性信息，这些信息被保存在ansible变量中；无须声明，可直接调用；
+
+  2)自定义变量：
+   通过命令行传递：ansible-playbook  test.yml  –extra-vars "host=www user=test"
+   通过roles传递
+
+ 3)主机变量：定义在inventory中的主机之后的变量；直接传递给单个主机的变量
+实例：
+
+[root@localhost ~]# vim /etc/ansible/hosts中直接定义在主机之后
+[web]
+192.168.0.101    host=mail
+192.168.0.102
+192.168.0.103
+
+ 4)组变量：定义在inventory中的组上的变量(例如在默认的文件/etc/ansible/hosts上编辑)
+[group_name:vars]
+var1=value
+var2=value
+
+注意：组名要事先存在，实例如下：
+
+[websrvs]
+192.168.0.101
+192.168.0.102
+
+[websrvs:vars]
+host=mail
+
+  变量使用示例：
+      [root@localhost~]# vim useradd.yml
+     – hosts: websrvs
+        remote_user: root
+        vars:
+        username: testuser
+    password: xuding
+        tasks:
+
+    - name: add user
+       user: name={{ username }} state=present
+
+    - name: set password
+        shell: /bin/echo {{ password }} |/usr/bin/passwd –stdin {{ username }}
+
+注释：
+    1) {{ }} 调用变量
+    2) #ansible-playbook /PATH/TO/SOME_YAML_FILE  { -eVARS|–extra-vars=VARS}     变量的重新赋值调用方法
+
+[root@localhost ~]# ansible-playbookuseradd.yml –extra-vars "username=ubuntu"
+
+ 5.playbook—  tasks
+      (1)条件测试：
+              在某task后面添加when子句即可实现条件测试功能；when语句支持Jinja2语法；
+     实例：当时RedHat系列系统时候调用yum安装
+tasks:
+
+- name: install web server package
+  yum: name=httpd state=present
+  when: ansible_os_family == "RedHat"
+
+      (2)迭代：item
+    在task中调用内置的item变量；在某task后面使用with_items语句来定义元素列表；
+
+tasks:
+- name: add four users
+  user: name={{ item }}  state=present
+  with_items:
+    - testuser1
+    - testuser2
+    - testuser3
+    - testuser4
+
+   注意：迭代中，列表中的每个元素可以为字典格式；
+
+       实例：
+- name: add two users
+  user: name={{ item.name }}  state=present groups={{ item.groups }}
+  with_items:
+      – { name: 'testuser5', groups: 'wheel' }
+      – { name: 'testuser6', groups: 'root' }
+ 
+
+ 6.playbook— handlers：处理器；触发器
+       只有其关注的条件满足时，才会被触发执行的任务；
+实例：配置文件发生改变触发重启服务
+
+ - hosts: websrvs
+   remote_user: root
+   tasks:
+    - name: install httpd
+      yum:name=httpd state=present
+    - name: install config file
+        copy: src=/root/httpd.conf dest=/etc/httpd/conf/httpd.conf
+
+          notify: restart httpd
+        -name: start httpd service
+              service: name=httpd state=started
+    handlers:
+    - name: restart httpd
+         service: name=httpd state=restarted
+
+ 7.playbook模板
+     templates：
+             用于生成文本文件（配置文件）；模板文件中可使用jinja2表达式，表达式要定义在{{}}，也可以简单地仅执行变量替换；
+
+      roles：
+  roles用于实现“代码复用”；
+  roles以特定的层次型格式组织起来的playbook元素（variables,tasks, templates, handlers）；
+  可被playbook以role的名字直接进行调用；
+      用法：在roles/下建立[group_name]子目录，并非全部都要创建；例如：
+/etc/ansible/roles/（在/etc/ansible/ansible.cfg定义roles目录）
+
+
+webserver/
+files/：此角色中用到的所有文件均放置于此目录中；
+templates/：Jinja2模板文件存放位置；
+tasks/：任务列表文件；可以有多个，但至少有一个叫做main.yml的文件；
+handlers/：处理器列表文件；可以有多个，但至少有一个叫做main.yml的文件；
+vars/：变量字典文件；可以有多个，但至少有一个叫做main.yml的文件；
+meta/：此角色的特殊设定及依赖关系;
+
