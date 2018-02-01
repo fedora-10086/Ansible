@@ -1,0 +1,50 @@
+---
+  - hosts: 12.12.12.12
+    remote_user: root
+    gather_facts: false
+    tasks:
+        - name: modify jail.conf
+          lineinfile:
+              dest: "/etc/fail2ban/jail.conf"
+              regexp: "^maxretry = 350"
+              insertafter: '# maxretry = 350'
+              line: "maxretry = 366"
+
+        - name: fail2ban restart
+          service: name=fail2ban state=restarted enabled=true
+
+
+
+
+
+---
+  - hosts: gitlab
+    remote_user: root
+    gather_facts: false
+
+    tasks:
+        - name: Modify ssh port 1669
+          lineinfile:
+              dest: /etc/ssh/{{ item }}
+              regexp: '^Port 22'
+              insertafter: '#Port 22'
+              line: 'Port 11'
+
+          with_items:
+              - sshd_config
+              - ssh_config
+          tags:
+                - sshport
+    tasks: 
+        - name: Modify iptables for ssh service
+          command: iptables -D INPUT -p tcp --dport 22 -j ACCEPT
+          command: iptables -I INPUT 7 -p tcp --dport 11 -j ACCEPT
+          command: /etc/init.d/iptables save
+        
+        - name: ssh,iptables service restart
+          service: name=iptables state=restarted enabled=true
+          service: name=sshd state=restarted enabled=true
+
+    notify: 
+         - service sshd restart
+         - service iptables restart
