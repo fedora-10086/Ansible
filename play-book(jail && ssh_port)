@@ -23,7 +23,7 @@
     gather_facts: false
 
     tasks:
-        - name: Modify ssh port 1669
+        - name: Modify ssh port 22
           lineinfile:
               dest: /etc/ssh/{{ item }}
               regexp: '^Port 22'
