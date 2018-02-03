@@ -50,22 +50,22 @@ base_install.yml
     gather_facts: false
 
     task:
-	      - name: copy repel.repo
-	          copy: src='/etc/yum.repos.d/repel.repo' dest='/etc/yum.repos.d/' owner=root group=root mode=0644
+	- name: copy repel.repo
+	    copy: src='/etc/yum.repos.d/repel.repo' dest='/etc/yum.repos.d/' owner=root group=root mode=0644
        
 
-  	    - name: install gcc wget make zip unzip
+  	- name: install gcc wget make zip unzip
             yum: name=gcc state=present
             yum: name=wget state=present
             yum: name=make state=present
             yum: name=zip state=present
             yum: name=unzip state=present
-	          yum: name=nginx state=latest
-	          yum: name=psmisc state=present
-	          yum: name=net-tools.x86_64 state=present
+	    yum: name=nginx state=latest
+	    yum: name=psmisc state=present
+	    yum: name=net-tools.x86_64 state=present
 
-	     - name: nginx start
- 	         service: name=nginx state=started enabled=true
+       - name: nginx start
+ 	    service: name=nginx state=started enabled=true
 
 	    
         
