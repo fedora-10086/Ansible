@@ -1,0 +1,73 @@
+
+安装ansible ,python版本需要2.6以上，不过centos7都会默认安装上python2.7.5，查看方法：python -V
+
+vi /etc/yum.repos.d/ansible.repo
+[ansible]
+name=ansible
+baseurl=https://mirrors.aliyun.com/epel/7/x86_64/
+enabled=1
+gpgcheck=0
+
+
+yum clean all
+yum install -y ansible
+
+cd /etc/ansible
+vi ansible.cfg
+[defaults]
+inventory      = /etc/ansible/hosts
+sudo_user      = root
+remote_port    = 22
+roles_path    = /etc/ansible/roles:/usr/share/ansible/roles
+
+
+vi hosts
+[web]
+192.168.1.100
+192.168.1.101
+192.168.1.102  ansible_ssh_port=20022
+
+
+服务端：
+ssh-keygen
+ssh-copy-id -i ~/.ssh/id_rsa.pub user_name@server_ip
+ssh-copy-id -i ~/.ssh/id_rsa.pub "-p 20022 test@192.168.1.102"
+
+
+ansible web -m command -a "ping"
+ansible web -m command -a "uptime"
+ansible-playbook xxxxyy.yml
+
+ansible web -m copy -a “src=/etc/hosts dest=/etc/”
+ansible web -m shell -a “yum install wget -y”
+
+ansible web -m copy -a "src=/etc/yum.repos.d/repel.repo dest=/etc/yum.repos.d/ owner=root group=root mode=0644"
+
+base_install.yml
+---
+  - hosts: web
+    remote_user: root
+    gather_facts: false
+
+    task:
+	      - name: copy repel.repo
+	          copy: src='/etc/yum.repos.d/repel.repo' dest='/etc/yum.repos.d/' owner=root group=root mode=0644
+       
+
+  	    - name: install gcc wget make zip unzip
+            yum: name=gcc state=present
+            yum: name=wget state=present
+            yum: name=make state=present
+            yum: name=zip state=present
+            yum: name=unzip state=present
+	          yum: name=nginx state=latest
+	          yum: name=psmisc state=present
+	          yum: name=net-tools.x86_64 state=present
+
+	     - name: nginx start
+ 	         service: name=nginx state=started enabled=true
+
+	    
+        
+
+
